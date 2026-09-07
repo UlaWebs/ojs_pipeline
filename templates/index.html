@@ -1,0 +1,1450 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OJS Pipeline — Dashboard</title>
+  <meta name="description" content="Dashboard otomasi pengiriman naskah jurnal ke OJS menggunakan AI lokal." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* =========================================
+       DESIGN TOKENS
+    ========================================= */
+    :root {
+      --bg-base:      #0d1117;
+      --bg-surface:   #161b22;
+      --bg-elevated:  #1c2330;
+      --bg-card:      #1e2533;
+      --border:       rgba(99,115,143,0.22);
+      --border-glow:  rgba(99,140,255,0.45);
+
+      --accent:       #6366f1;
+      --accent-2:     #8b5cf6;
+      --accent-grad:  linear-gradient(135deg,#6366f1,#8b5cf6);
+      --success:      #10b981;
+      --warning:      #f59e0b;
+      --danger:       #ef4444;
+      --info:         #3b82f6;
+
+      --text-primary:   #e6edf3;
+      --text-secondary: #8b949e;
+      --text-muted:     #58677a;
+
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 18px;
+      --radius-xl: 24px;
+
+      --shadow-card: 0 4px 24px rgba(0,0,0,0.35);
+      --shadow-glow: 0 0 32px rgba(99,102,241,0.18);
+    }
+
+    /* =========================================
+       RESET & BASE
+    ========================================= */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg-base);
+      color: var(--text-primary);
+      display: flex;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* =========================================
+       SIDEBAR
+    ========================================= */
+    .sidebar {
+      width: 240px;
+      flex-shrink: 0;
+      background: var(--bg-surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 24px 0;
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      z-index: 100;
+    }
+
+    .sidebar-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 20px 28px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo-icon {
+      width: 38px; height: 38px;
+      background: var(--accent-grad);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      box-shadow: 0 0 16px rgba(99,102,241,0.4);
+    }
+
+    .logo-text { font-size: 15px; font-weight: 700; letter-spacing: -0.3px; }
+    .logo-sub  { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+
+    .sidebar-nav { padding: 20px 10px; flex: 1; display: flex; flex-direction: column; gap: 4px; }
+
+    .nav-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.2s;
+      color: var(--text-secondary);
+      font-size: 14px; font-weight: 500;
+      border: none; background: none; width: 100%; text-align: left;
+    }
+
+    .nav-item:hover  { background: rgba(99,102,241,0.1); color: var(--text-primary); }
+    .nav-item.active { background: rgba(99,102,241,0.18); color: var(--accent); }
+    .nav-item.active .nav-icon { color: var(--accent); }
+    .nav-icon { font-size: 18px; width: 22px; text-align: center; }
+
+    .sidebar-footer {
+      padding: 16px 20px 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .system-status {
+      background: var(--bg-elevated);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      font-size: 12px;
+    }
+
+    .status-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 4px 0;
+      color: var(--text-secondary);
+    }
+
+    .status-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .dot-green  { background: var(--success); box-shadow: 0 0 6px var(--success); }
+    .dot-yellow { background: var(--warning); box-shadow: 0 0 6px var(--warning); }
+    .dot-red    { background: var(--danger);  box-shadow: 0 0 6px var(--danger);  }
+
+    /* =========================================
+       MAIN CONTENT
+    ========================================= */
+    .main {
+      margin-left: 240px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* =========================================
+       TOPBAR
+    ========================================= */
+    .topbar {
+      height: 64px;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      position: sticky; top: 0; z-index: 50;
+      backdrop-filter: blur(12px);
+    }
+
+    .topbar-title { font-size: 17px; font-weight: 600; }
+    .topbar-sub   { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+    .topbar-right { display: flex; align-items: center; gap: 16px; }
+
+    .badge-count {
+      background: var(--accent);
+      color: #fff;
+      font-size: 11px; font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 20px;
+    }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 9px 18px;
+      border-radius: var(--radius-sm);
+      font-size: 13px; font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: none;
+    }
+
+    .btn-primary {
+      background: var(--accent-grad);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(99,102,241,0.35);
+    }
+    .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(99,102,241,0.45); }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { background: var(--bg-elevated); color: var(--text-primary); }
+
+    /* =========================================
+       PAGE BODY
+    ========================================= */
+    .page { padding: 28px; display: flex; flex-direction: column; gap: 24px; }
+
+    /* =========================================
+       PIPELINE FLOW BANNER
+    ========================================= */
+    .pipeline-banner {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px 28px;
+      box-shadow: var(--shadow-card);
+    }
+
+    .pipeline-banner h2 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 20px;
+    }
+
+    .pipeline-steps {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      flex-wrap: wrap;
+    }
+
+    .pipeline-step {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      flex: 1;
+      min-width: 140px;
+    }
+
+    .step-card {
+      flex: 1;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 16px 14px;
+      text-align: center;
+      transition: all 0.3s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .step-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      border-radius: 3px 3px 0 0;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .step-1::before { background: var(--accent-grad); }
+    .step-2::before { background: linear-gradient(90deg,#f59e0b,#f97316); }
+    .step-3::before { background: linear-gradient(90deg,#3b82f6,#06b6d4); }
+    .step-4::before { background: linear-gradient(90deg,#10b981,#34d399); }
+
+    .step-card.active-step { border-color: var(--border-glow); box-shadow: var(--shadow-glow); }
+    .step-card.active-step::before { opacity: 1; }
+
+    .step-icon {
+      font-size: 26px;
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    .step-num {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .step-label {
+      font-size: 13px;
+      font-weight: 600;
+      margin: 4px 0 2px;
+    }
+
+    .step-desc {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .step-arrow {
+      font-size: 20px;
+      color: var(--text-muted);
+      padding: 0 10px;
+      flex-shrink: 0;
+      animation: pulse-arrow 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-arrow {
+      0%, 100% { opacity: 0.4; transform: translateX(0); }
+      50%       { opacity: 1;   transform: translateX(4px); }
+    }
+
+    /* =========================================
+       GRID 2-COL
+    ========================================= */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+
+    @media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } }
+
+    /* =========================================
+       UPLOAD ZONE
+    ========================================= */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-card);
+    }
+
+    .card-header {
+      padding: 18px 24px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .card-title {
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .card-body { padding: 18px 24px 24px; }
+
+    #drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius-md);
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.25s;
+      position: relative;
+    }
+
+    #drop-zone:hover,
+    #drop-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(99,102,241,0.07);
+      box-shadow: 0 0 28px rgba(99,102,241,0.15);
+    }
+
+    #drop-zone.drag-over .dz-icon { transform: scale(1.15); }
+
+    .dz-icon {
+      font-size: 42px;
+      display: block;
+      margin-bottom: 12px;
+      transition: transform 0.25s;
+    }
+
+    .dz-title  { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+    .dz-sub    { font-size: 13px; color: var(--text-muted); }
+    .dz-browse {
+      color: var(--accent);
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    #file-input { display: none; }
+
+    #selected-file {
+      margin-top: 16px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      display: none;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .file-icon  { font-size: 20px; }
+    .file-name  { font-size: 13px; font-weight: 500; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .file-clear {
+      cursor: pointer; color: var(--text-muted);
+      font-size: 16px;
+      transition: color 0.2s;
+      background: none; border: none; color: var(--text-muted);
+    }
+    .file-clear:hover { color: var(--danger); }
+
+    #upload-btn {
+      width: 100%;
+      margin-top: 16px;
+      padding: 12px;
+      justify-content: center;
+      font-size: 14px;
+    }
+
+    /* =========================================
+       PROGRESS / LIVE STATUS
+    ========================================= */
+    #live-status-box {
+      display: none;
+      margin-top: 16px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 16px;
+    }
+
+    .live-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .live-spinner {
+      width: 20px; height: 20px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .live-label   { font-size: 13px; font-weight: 600; }
+    .live-job-id  { font-size: 12px; color: var(--text-muted); }
+
+    .progress-track {
+      height: 6px;
+      background: var(--bg-surface);
+      border-radius: 6px;
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: var(--accent-grad);
+      border-radius: 6px;
+      transition: width 0.5s ease;
+      width: 0%;
+    }
+
+    .live-steps {
+      display: flex;
+      gap: 6px;
+    }
+
+    .live-step {
+      flex: 1;
+      font-size: 10px;
+      text-align: center;
+      padding: 5px 4px;
+      border-radius: 6px;
+      background: var(--bg-surface);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      transition: all 0.3s;
+    }
+
+    .live-step.done    { background: rgba(16,185,129,0.15); color: var(--success); border-color: rgba(16,185,129,0.3); }
+    .live-step.running { background: rgba(99,102,241,0.15); color: var(--accent);  border-color: rgba(99,102,241,0.35); }
+    .live-step.failed  { background: rgba(239,68,68,0.15);  color: var(--danger);  border-color: rgba(239,68,68,0.3); }
+
+    /* =========================================
+       STATS MINI CARDS
+    ========================================= */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+
+    @media (max-width: 900px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 16px 18px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      box-shadow: var(--shadow-card);
+    }
+
+    .stat-icon {
+      width: 42px; height: 42px;
+      border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    .stat-icon-purple { background: rgba(99,102,241,0.15); }
+    .stat-icon-yellow { background: rgba(245,158,11,0.15); }
+    .stat-icon-blue   { background: rgba(59,130,246,0.15); }
+    .stat-icon-green  { background: rgba(16,185,129,0.15); }
+
+    .stat-num   { font-size: 22px; font-weight: 700; }
+    .stat-label { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+    /* =========================================
+       JOB TABLE
+    ========================================= */
+    .table-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 24px 0;
+    }
+
+    .refresh-btn {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-secondary);
+      padding: 7px 12px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex; align-items: center; gap: 6px;
+    }
+
+    .refresh-btn:hover { color: var(--text-primary); background: var(--bg-card); }
+    .refresh-btn.spinning .refresh-icon { animation: spin 0.8s linear infinite; }
+
+    table { width: 100%; border-collapse: collapse; }
+
+    .table-wrap { padding: 14px 0 8px; overflow-x: auto; }
+
+    th {
+      text-align: left;
+      padding: 8px 16px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+    }
+
+    td {
+      padding: 12px 16px;
+      font-size: 13px;
+      border-bottom: 1px solid rgba(99,115,143,0.1);
+      vertical-align: middle;
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    tr { transition: background 0.15s; }
+    tbody tr:hover { background: rgba(99,102,241,0.05); }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .badge-pending    { background: rgba(245,158,11,0.15); color: var(--warning); border: 1px solid rgba(245,158,11,0.3); }
+    .badge-processing { background: rgba(99,102,241,0.15); color: var(--accent);  border: 1px solid rgba(99,102,241,0.3); }
+    .badge-success    { background: rgba(16,185,129,0.15); color: var(--success); border: 1px solid rgba(16,185,129,0.3); }
+    .badge-failed     { background: rgba(239,68,68,0.15);  color: var(--danger);  border: 1px solid rgba(239,68,68,0.3); }
+
+    .badge-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+    .pulse-dot {
+      animation: pulse-glow 1.4s ease-in-out infinite;
+    }
+
+    @keyframes pulse-glow {
+      0%,100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.4; transform: scale(0.6); }
+    }
+
+    .td-id    { color: var(--text-muted); font-size: 12px; font-family: monospace; }
+    .td-file  { font-weight: 500; max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .td-ojs   { color: var(--accent); font-weight: 500; }
+
+    .detail-btn {
+      background: none; border: 1px solid var(--border);
+      border-radius: 6px; padding: 5px 10px;
+      font-size: 12px; color: var(--text-secondary);
+      cursor: pointer; transition: all 0.2s;
+    }
+
+    .detail-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(99,102,241,0.08); }
+
+    #empty-state {
+      text-align: center;
+      padding: 48px;
+      color: var(--text-muted);
+    }
+
+    .empty-icon { font-size: 40px; margin-bottom: 12px; }
+    .empty-text { font-size: 14px; }
+
+    /* =========================================
+       DETAIL MODAL
+    ========================================= */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.65);
+      backdrop-filter: blur(4px);
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+
+    .modal {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      width: 90%;
+      max-width: 560px;
+      max-height: 85vh;
+      overflow-y: auto;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+      transform: translateY(20px);
+      transition: transform 0.2s;
+    }
+
+    .modal-overlay.open .modal { transform: translateY(0); }
+
+    .modal-head {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .modal-title { font-size: 16px; font-weight: 700; }
+
+    .modal-close {
+      background: none; border: none;
+      color: var(--text-muted); font-size: 20px;
+      cursor: pointer; transition: color 0.2s;
+      line-height: 1;
+    }
+
+    .modal-close:hover { color: var(--text-primary); }
+
+    .modal-body { padding: 20px 24px; }
+
+    .meta-row {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 10px;
+      font-size: 13px;
+    }
+
+    .meta-key   { color: var(--text-muted); width: 130px; flex-shrink: 0; font-weight: 500; }
+    .meta-value { flex: 1; word-break: break-all; }
+
+    .json-block {
+      background: var(--bg-base);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      font-size: 12px;
+      font-family: 'Courier New', monospace;
+      color: #a5d6ff;
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 200px;
+      overflow-y: auto;
+      margin-top: 6px;
+    }
+
+    .error-block {
+      background: rgba(239,68,68,0.08);
+      border: 1px solid rgba(239,68,68,0.25);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      font-size: 12px;
+      color: #fca5a5;
+      margin-top: 6px;
+    }
+
+    /* =========================================
+       TOAST
+    ========================================= */
+    #toast-container {
+      position: fixed;
+      bottom: 24px; right: 24px;
+      z-index: 999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .toast {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 14px 18px;
+      font-size: 13px;
+      font-weight: 500;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      animation: slide-in 0.3s ease;
+      min-width: 280px;
+    }
+
+    @keyframes slide-in {
+      from { transform: translateX(120%); opacity: 0; }
+      to   { transform: translateX(0);    opacity: 1; }
+    }
+
+    .toast-icon { font-size: 18px; }
+    .toast-success { border-left: 3px solid var(--success); }
+    .toast-error   { border-left: 3px solid var(--danger);  }
+    .toast-info    { border-left: 3px solid var(--accent);  }
+  </style>
+</head>
+<body>
+
+<!-- ===== SIDEBAR ===== -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">📄</div>
+    <div>
+      <div class="logo-text">OJS Pipeline</div>
+      <div class="logo-sub">Jurnal Automation</div>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <button class="nav-item active" onclick="showPage('dashboard')" id="nav-dashboard">
+      <span class="nav-icon">🏠</span> Dashboard
+    </button>
+    <button class="nav-item" onclick="showPage('upload')" id="nav-upload">
+      <span class="nav-icon">⬆️</span> Upload Naskah
+    </button>
+    <button class="nav-item" onclick="showPage('history')" id="nav-history">
+      <span class="nav-icon">📋</span> Riwayat Job
+    </button>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="system-status">
+      <div style="font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;">STATUS SISTEM</div>
+      <div class="status-item">
+        <div class="status-dot dot-green" id="flask-dot"></div>
+        <span>Flask Server</span>
+      </div>
+      <div class="status-item">
+        <div class="status-dot" id="redis-dot" style="background:var(--text-muted)"></div>
+        <span>Redis Queue</span>
+      </div>
+      <div class="status-item">
+        <div class="status-dot" id="worker-dot" style="background:var(--text-muted)"></div>
+        <span>Worker</span>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- ===== MAIN ===== -->
+<div class="main">
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div>
+      <div class="topbar-title" id="page-title">Dashboard</div>
+      <div class="topbar-sub" id="page-sub">Ringkasan alur pipeline OJS</div>
+    </div>
+    <div class="topbar-right">
+      <span id="pending-badge" style="display:none" class="badge-count">0 pending</span>
+      <button class="btn btn-primary" onclick="showPage('upload')">
+        ⬆️ Upload PDF
+      </button>
+    </div>
+  </header>
+
+  <!-- PAGE: DASHBOARD -->
+  <div class="page" id="page-dashboard">
+
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-purple">📦</div>
+        <div>
+          <div class="stat-num" id="stat-total">0</div>
+          <div class="stat-label">Total Job</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-yellow">⏳</div>
+        <div>
+          <div class="stat-num" id="stat-pending">0</div>
+          <div class="stat-label">Pending / Processing</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-green">✅</div>
+        <div>
+          <div class="stat-num" id="stat-success">0</div>
+          <div class="stat-label">Berhasil</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-blue">❌</div>
+        <div>
+          <div class="stat-num" id="stat-failed">0</div>
+          <div class="stat-label">Gagal</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pipeline Flow -->
+    <div class="pipeline-banner">
+      <h2>🔄 Alur Pipeline Otomatis</h2>
+      <div class="pipeline-steps">
+        <div class="pipeline-step">
+          <div class="step-card step-1" id="flow-step-1">
+            <span class="step-icon">📤</span>
+            <div class="step-num">Step 1</div>
+            <div class="step-label">Upload PDF</div>
+            <div class="step-desc">Naskah diunggah & disimpan ke storage</div>
+          </div>
+        </div>
+        <div class="step-arrow">→</div>
+        <div class="pipeline-step">
+          <div class="step-card step-2" id="flow-step-2">
+            <span class="step-icon">🤖</span>
+            <div class="step-num">Step 2</div>
+            <div class="step-label">Ekstraksi AI</div>
+            <div class="step-desc">KoboldCPP ekstrak judul, abstrak & penulis</div>
+          </div>
+        </div>
+        <div class="step-arrow">→</div>
+        <div class="pipeline-step">
+          <div class="step-card step-3" id="flow-step-3">
+            <span class="step-icon">📄</span>
+            <div class="step-num">Step 3</div>
+            <div class="step-label">Generate XML</div>
+            <div class="step-desc">OJS Native XML dibuat, siap diimpor ke OJS</div>
+          </div>
+        </div>
+        <div class="step-arrow">→</div>
+        <div class="pipeline-step">
+          <div class="step-card step-4" id="flow-step-4">
+            <span class="step-icon">🎉</span>
+            <div class="step-num">Step 4</div>
+            <div class="step-label">Selesai</div>
+            <div class="step-desc">Unduh XML → Import ke OJS Admin Panel</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Jobs Table -->
+    <div class="card">
+      <div class="table-header">
+        <div class="card-title">📋 Job Terbaru</div>
+        <button class="refresh-btn" onclick="loadJobs(true)" id="refresh-btn">
+          <span class="refresh-icon">🔄</span> Refresh
+        </button>
+      </div>
+      <div class="table-wrap">
+        <div id="table-container-dashboard"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE: UPLOAD -->
+  <div class="page" id="page-upload" style="display:none; max-width: 700px;">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">📤 Upload Naskah PDF</div>
+      </div>
+      <div class="card-body">
+
+        <!-- ── Drop Zone (multi-file) ── -->
+        <div id="drop-zone" onclick="document.getElementById('file-input').click()">
+          <span class="dz-icon">📄</span>
+          <div class="dz-title">Seret &amp; Lepas file PDF di sini</div>
+          <div class="dz-sub">atau <span class="dz-browse">pilih dari komputer</span></div>
+          <div class="dz-sub" style="margin-top:8px; font-size:11px">Mendukung hingga <strong>10 file PDF</strong> sekaligus</div>
+        </div>
+        <input type="file" id="file-input" accept=".pdf" multiple />
+
+        <!-- File list preview -->
+        <div id="selected-files-list" style="display:none; margin-top:14px; flex-direction:column; gap:6px;"></div>
+
+        <!-- ── Issue Identification Form ── -->
+        <div id="issue-form" style="display:none; margin-top:20px; padding:16px; background:var(--bg-elevated); border:1px solid var(--border); border-radius:var(--radius-md);">
+          <div style="font-size:13px; font-weight:700; margin-bottom:14px; color:var(--text-primary);">📰 Identifikasi Issue (Opsional)</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:10px;">
+            <div>
+              <label style="font-size:11px;color:var(--text-muted);font-weight:600;display:block;margin-bottom:4px;">VOLUME</label>
+              <input id="iss-volume" type="text" placeholder="Contoh: 13" style="width:100%;background:var(--bg-base);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text-primary);font-size:13px;">
+            </div>
+            <div>
+              <label style="font-size:11px;color:var(--text-muted);font-weight:600;display:block;margin-bottom:4px;">NOMOR</label>
+              <input id="iss-number" type="text" placeholder="Contoh: 3" style="width:100%;background:var(--bg-base);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text-primary);font-size:13px;">
+            </div>
+            <div>
+              <label style="font-size:11px;color:var(--text-muted);font-weight:600;display:block;margin-bottom:4px;">TAHUN</label>
+              <input id="iss-year" type="text" placeholder="Contoh: 2026" style="width:100%;background:var(--bg-base);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text-primary);font-size:13px;">
+            </div>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--text-muted);font-weight:600;display:block;margin-bottom:4px;">JUDUL EDISI</label>
+            <input id="iss-title" type="text" placeholder="Contoh: Juni 2026" style="width:100%;background:var(--bg-base);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text-primary);font-size:13px;">
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:8px;">ℹ️ Data ini akan tertanam di XML dan muncul di tag &lt;issue_identification&gt;</div>
+        </div>
+
+        <button class="btn btn-primary" id="upload-btn" onclick="uploadFiles()" style="display:none; width:100%; margin-top:16px; padding:12px; justify-content:center;">
+          ⬆️ Upload &amp; Proses Sekarang
+        </button>
+
+        <div id="live-status-box">
+          <div class="live-row">
+            <div class="live-spinner" id="live-spinner"></div>
+            <div>
+              <div class="live-label" id="live-label">Mengunggah file...</div>
+              <div class="live-job-id" id="live-job-id"></div>
+            </div>
+          </div>
+          <div class="progress-track">
+            <div class="progress-bar" id="progress-bar"></div>
+          </div>
+          <div class="live-steps">
+            <div class="live-step" id="lstep-1">⬆️ Upload</div>
+            <div class="live-step" id="lstep-2">🤖 AI Ekstrak</div>
+            <div class="live-step" id="lstep-3">📄 Generate XML</div>
+            <div class="live-step" id="lstep-4">✅ Selesai</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Tips -->
+    <div class="card">
+      <div class="card-header"><div class="card-title">💡 Tips Penggunaan</div></div>
+      <div class="card-body" style="display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;gap:12px;align-items:flex-start;font-size:13px">
+          <span>1️⃣</span>
+          <div>Pilih <strong>1–10 file PDF</strong> sekaligus — semua akan diproses dalam 1 batch</div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start;font-size:13px">
+          <span>2️⃣</span>
+          <div>Isi <strong>Identifikasi Issue</strong> (Volume/Nomor/Tahun) agar terisi otomatis di XML</div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start;font-size:13px">
+          <span>3️⃣</span>
+          <div>AI membaca <strong>3 halaman pertama</strong> tiap PDF untuk mengekstrak judul, abstrak, penulis</div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start;font-size:13px">
+          <span>4️⃣</span>
+          <div>Setelah selesai, unduh XML per artikel atau <strong>Bundle ke Issue</strong> via Riwayat Job</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE: HISTORY -->
+  <div class="page" id="page-history" style="display:none;">
+    <div class="card">
+      <div class="table-header">
+        <div class="card-title">📋 Semua Riwayat Job</div>
+        <button class="refresh-btn" onclick="loadJobs(true)" id="refresh-btn-2">
+          <span class="refresh-icon">🔄</span> Refresh
+        </button>
+      </div>
+      <div class="table-wrap">
+        <div id="table-container-history"></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- ===== MODAL DETAIL ===== -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title" id="modal-title">Detail Job</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<!-- ===== TOAST ===== -->
+<div id="toast-container"></div>
+
+<script>
+  // ===========================
+  // STATE
+  // ===========================
+  let allJobs = [];
+  let currentFile = null;
+  let pollInterval = null;
+  let currentPollJobId = null;
+
+  // ===========================
+  // NAVIGATION
+  // ===========================
+  function showPage(page) {
+    ['dashboard','upload','history'].forEach(p => {
+      document.getElementById('page-'+p).style.display = 'none';
+      document.getElementById('nav-'+p).classList.remove('active');
+    });
+    document.getElementById('page-'+page).style.display = 'flex';
+    document.getElementById('nav-'+page).classList.add('active');
+
+    const titles = {
+      dashboard: ['Dashboard', 'Ringkasan alur pipeline OJS'],
+      upload:    ['Upload Naskah', 'Unggah file PDF naskah jurnal'],
+      history:   ['Riwayat Job', 'Daftar semua job yang pernah diproses'],
+    };
+    document.getElementById('page-title').textContent = titles[page][0];
+    document.getElementById('page-sub').textContent   = titles[page][1];
+
+    if (page === 'history') loadJobs();
+    if (page === 'dashboard') loadJobs();
+  }
+
+  // ===========================
+  // LOAD JOBS
+  // ===========================
+  async function loadJobs(showSpinner = false) {
+    if (showSpinner) {
+      ['refresh-btn','refresh-btn-2'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) btn.classList.add('spinning');
+      });
+    }
+
+    try {
+      const res = await fetch('/jobs');
+      allJobs = await res.json();
+
+      renderStats(allJobs);
+      renderTable('table-container-dashboard', allJobs.slice(0, 6));
+      renderTable('table-container-history', allJobs);
+
+      // Pending badge
+      const pending = allJobs.filter(j => ['pending','processing'].includes(j.status)).length;
+      const badge = document.getElementById('pending-badge');
+      if (pending > 0) {
+        badge.textContent = `${pending} aktif`;
+        badge.style.display = 'inline-flex';
+      } else {
+        badge.style.display = 'none';
+      }
+
+      // Status sidebar dots
+      document.getElementById('redis-dot').className = 'status-dot dot-green';
+      document.getElementById('worker-dot').className = 'status-dot dot-green';
+
+    } catch (e) {
+      document.getElementById('redis-dot').className = 'status-dot dot-red';
+    } finally {
+      setTimeout(() => {
+        ['refresh-btn','refresh-btn-2'].forEach(id => {
+          const btn = document.getElementById(id);
+          if (btn) btn.classList.remove('spinning');
+        });
+      }, 500);
+    }
+  }
+
+  // ===========================
+  // STATS
+  // ===========================
+  function renderStats(jobs) {
+    document.getElementById('stat-total').textContent   = jobs.length;
+    document.getElementById('stat-pending').textContent = jobs.filter(j => ['pending','processing'].includes(j.status)).length;
+    document.getElementById('stat-success').textContent = jobs.filter(j => j.status === 'success').length;
+    document.getElementById('stat-failed').textContent  = jobs.filter(j => j.status === 'failed').length;
+  }
+
+  // ===========================
+  // TABLE RENDER
+  // ===========================
+  function renderTable(containerId, jobs) {
+    const container = document.getElementById(containerId);
+    if (!jobs.length) {
+      container.innerHTML = `
+        <div id="empty-state">
+          <div class="empty-icon">📭</div>
+          <div class="empty-text">Belum ada job. Upload PDF pertama Anda!</div>
+        </div>`;
+      return;
+    }
+
+    const rows = jobs.map(j => {
+      const badge = badgeHtml(j.status);
+      const xmlBtn = j.xml_available
+        ? `<a href="${j.xml_download_url}" class="detail-btn" style="color:var(--success);border-color:rgba(16,185,129,0.35)" title="Unduh XML">⬇️ XML</a>`
+        : `<span style="color:var(--text-muted);font-size:12px">—</span>`;
+      const iss = j.issue_data && j.issue_data.volume
+        ? `Vol.${j.issue_data.volume} No.${j.issue_data.number} (${j.issue_data.year})`
+        : `<span style="color:var(--text-muted)">—</span>`;
+      const ts = j.created_at ? new Date(j.created_at).toLocaleString('id-ID') : '—';
+      
+      let automateBtn = `<span style="color:var(--text-muted);font-size:12px">—</span>`;
+      if (j.status === 'success') {
+          if (j.automation_status === 'running' || j.automation_status === 'pending') {
+              automateBtn = `<span class="badge badge-processing"><span class="badge-dot pulse-dot"></span>Running</span>`;
+          } else if (j.automation_status === 'success') {
+              automateBtn = `<span class="badge badge-success">✅ Selesai</span>`;
+          } else if (j.automation_status === 'failed') {
+              automateBtn = `<button onclick="runAutomation(${j.job_id})" class="detail-btn" style="color:var(--danger);border-color:rgba(239,68,68,0.35)" title="Otomasi Gagal. Klik untuk coba lagi.">🔄 Ulangi</button>`;
+          } else {
+              automateBtn = `<button onclick="runAutomation(${j.job_id})" class="detail-btn" style="color:var(--accent);border-color:rgba(99,102,241,0.35)">🚀 Proses</button>`;
+          }
+      }
+      
+      return `
+        <tr>
+          <td class="td-id">#${j.job_id}</td>
+          <td class="td-file" title="${j.filename}">${j.filename}</td>
+          <td>${badge}</td>
+          <td style="font-size:12px">${iss}</td>
+          <td>${xmlBtn}</td>
+          <td>${automateBtn}</td>
+          <td style="color:var(--text-muted);font-size:12px">${ts}</td>
+          <td><button class="detail-btn" onclick="openDetail(${j.job_id})">Detail →</button></td>
+        </tr>`;
+    }).join('');
+
+    container.innerHTML = `
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>File</th>
+            <th>Status</th>
+            <th>Issue</th>
+            <th>XML</th>
+            <th>Otomasi OJS</th>
+            <th>Dibuat</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  }
+
+  async function runAutomation(jobId) {
+    if (!confirm('Apakah Anda yakin ingin mengotomasi submit naskah ini ke OJS?')) return;
+    
+    try {
+        toast('Memulai proses otomasi...', 'info');
+        const res = await fetch(`/job/${jobId}/automate`, { method: 'POST' });
+        const data = await res.json();
+        
+        if (!res.ok) { throw new Error(data.error || 'Gagal memulai automasi'); }
+        toast('Proses otomasi dijadwalkan!', 'success');
+        loadJobs();
+    } catch(e) {
+        toast(`❌ Error: ${e.message}`, 'error');
+    }
+  }
+
+  function badgeHtml(status) {
+    const map = {
+      pending:    { cls: 'badge-pending',    icon: '⏳', label: 'Pending',    pulse: false },
+      processing: { cls: 'badge-processing', icon: '⚙️', label: 'Processing', pulse: true  },
+      success:    { cls: 'badge-success',    icon: '✅', label: 'Sukses',     pulse: false },
+      failed:     { cls: 'badge-failed',     icon: '❌', label: 'Gagal',      pulse: false },
+    };
+    const s = map[status] || { cls: '', icon: '❓', label: status, pulse: false };
+    const dotCls = s.pulse ? 'badge-dot pulse-dot' : 'badge-dot';
+    return `<span class="badge ${s.cls}"><span class="${dotCls}"></span>${s.label}</span>`;
+  }
+
+  // ===========================
+  // UPLOAD (multi-file)
+  // ===========================
+  let currentFiles = [];
+
+  const dropZone = document.getElementById('drop-zone');
+  const fileInput = document.getElementById('file-input');
+
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault(); dropZone.classList.remove('drag-over');
+    setFiles(Array.from(e.dataTransfer.files));
+  });
+
+  fileInput.addEventListener('change', () => {
+    setFiles(Array.from(fileInput.files));
+  });
+
+  function setFiles(files) {
+    const pdfs = files.filter(f => f.name.toLowerCase().endsWith('.pdf'));
+    if (pdfs.length === 0) { toast('❌ Pilih file PDF.', 'error'); return; }
+    if (pdfs.length > 10) { toast('❌ Maksimal 10 file sekaligus.', 'error'); pdfs.splice(10); }
+    currentFiles = pdfs;
+
+    const list = document.getElementById('selected-files-list');
+    list.style.display = 'flex';
+    list.innerHTML = currentFiles.map((f,i) => `
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:6px;">
+        <span style="font-size:16px">📄</span>
+        <span style="font-size:12px;font-weight:500;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${f.name}</span>
+        <button onclick="removeFile(${i})" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;">✕</button>
+      </div>`).join('');
+
+    document.getElementById('issue-form').style.display = 'block';
+    document.getElementById('upload-btn').style.display = 'flex';
+    document.getElementById('live-status-box').style.display = 'none';
+  }
+
+  function removeFile(idx) {
+    currentFiles.splice(idx, 1);
+    if (currentFiles.length === 0) clearFiles();
+    else setFiles(currentFiles);
+  }
+
+  function clearFiles() {
+    currentFiles = [];
+    fileInput.value = '';
+    document.getElementById('selected-files-list').style.display = 'none';
+    document.getElementById('issue-form').style.display = 'none';
+    document.getElementById('upload-btn').style.display = 'none';
+    document.getElementById('live-status-box').style.display = 'none';
+  }
+
+  async function uploadFiles() {
+    if (!currentFiles.length) return;
+
+    const formData = new FormData();
+    currentFiles.forEach(f => formData.append('file[]', f));
+
+    // Tambahkan issue data jika diisi
+    const vol = document.getElementById('iss-volume').value.trim();
+    const num = document.getElementById('iss-number').value.trim();
+    const yr  = document.getElementById('iss-year').value.trim();
+    const tit = document.getElementById('iss-title').value.trim();
+    if (vol) formData.append('volume', vol);
+    if (num) formData.append('number', num);
+    if (yr)  formData.append('year', yr);
+    if (tit) formData.append('issue_title', tit);
+
+    document.getElementById('live-status-box').style.display = 'block';
+    document.getElementById('upload-btn').disabled = true;
+    setLiveStep(1, 'running');
+    setProgress(10);
+    document.getElementById('live-label').textContent = `Mengunggah ${currentFiles.length} file...`;
+    document.getElementById('live-job-id').textContent = '';
+
+    try {
+      const res  = await fetch('/upload', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (!res.ok) { throw new Error(data.error || 'Upload gagal'); }
+
+      const jobIds = data.jobs.map(j => `#${j.job_id}`).join(', ');
+      toast(`✅ ${data.jobs.length} file diunggah! Job: ${jobIds}`, 'success');
+      setLiveStep(1, 'done');
+      setProgress(30);
+      document.getElementById('live-label').textContent = `${data.jobs.length} job masuk antrean — menunggu worker...`;
+      document.getElementById('live-job-id').textContent = `Job IDs: ${jobIds}`;
+
+      // Poll semua job; tampilkan selesai setelah semua done
+      const firstJobId = data.jobs[0].job_id;
+      currentPollJobId = firstJobId;
+      startPolling(firstJobId);
+
+    } catch (e) {
+      toast(`❌ Error: ${e.message}`, 'error');
+      document.getElementById('live-label').textContent = `Error: ${e.message}`;
+      document.getElementById('upload-btn').disabled = false;
+    }
+  }
+
+  function setLiveStep(stepNum, state) {
+    for (let i = 1; i <= 4; i++) {
+      const el = document.getElementById('lstep-'+i);
+      el.classList.remove('running','done','failed');
+      if (i < stepNum) el.classList.add('done');
+      else if (i === stepNum) el.classList.add(state);
+    }
+  }
+
+  function setProgress(pct) {
+    document.getElementById('progress-bar').style.width = pct + '%';
+  }
+
+  function startPolling(jobId) {
+    if (pollInterval) clearInterval(pollInterval);
+    pollInterval = setInterval(() => pollJob(jobId), 2000);
+  }
+
+  async function pollJob(jobId) {
+    try {
+      const res = await fetch(`/job/${jobId}`);
+      const data = await res.json();
+
+      if (data.status === 'processing') {
+        setLiveStep(2, 'running');
+        setProgress(60);
+        document.getElementById('live-label').textContent = 'AI sedang mengekstrak metadata...';
+      }
+
+      if (data.status === 'success') {
+        clearInterval(pollInterval);
+        setLiveStep(4, 'done');
+        setProgress(100);
+        const xmlInfo = data.xml_download_url ? ` — <a href="${data.xml_download_url}" style="color:var(--success)">⬇️ Unduh XML</a>` : '';
+        document.getElementById('live-label').innerHTML = `✅ Berhasil! XML siap diunduh${xmlInfo}`;
+        document.getElementById('live-spinner').style.display = 'none';
+        document.getElementById('upload-btn').disabled = false;
+        toast(`🎉 XML berhasil dibuat! Unduh di Riwayat Job.`, 'success');
+        loadJobs();
+      }
+
+      if (data.status === 'failed') {
+        clearInterval(pollInterval);
+        document.getElementById('lstep-'+getCurrentStep()).classList.add('failed');
+        document.getElementById('live-label').textContent = `❌ Gagal: ${data.error_log}`;
+        document.getElementById('live-spinner').style.display = 'none';
+        document.getElementById('upload-btn').disabled = false;
+        toast(`❌ Job gagal: ${data.error_log?.substring(0,80)}`, 'error');
+        loadJobs();
+      }
+    } catch (e) {}
+  }
+
+  function getCurrentStep() {
+    for (let i = 1; i <= 4; i++) {
+      if (document.getElementById('lstep-'+i).classList.contains('running')) return i;
+    }
+    return 2;
+  }
+
+  // ===========================
+  // DETAIL MODAL
+  // ===========================
+  async function openDetail(jobId) {
+    const res = await fetch(`/job/${jobId}`);
+    const j = await res.json();
+
+    document.getElementById('modal-title').textContent = `Detail Job #${j.job_id}`;
+
+    let metaHtml = '';
+    if (j.metadata) {
+      metaHtml = `
+        <div class="meta-row" style="flex-direction:column;gap:4px;">
+          <div class="meta-key">📝 Metadata AI</div>
+          <div class="json-block">${JSON.stringify(j.metadata, null, 2)}</div>
+        </div>`;
+    }
+
+    let errorHtml = '';
+    if (j.error_log) {
+      errorHtml = `
+        <div class="meta-row" style="flex-direction:column;gap:4px;">
+          <div class="meta-key">⚠️ Error Log</div>
+          <div class="error-block">${j.error_log}</div>
+        </div>`;
+    }
+
+    const issHtml = j.issue_data && j.issue_data.volume ? `
+      <div class="meta-row"><span class="meta-key">Issue</span><span class="meta-value">Vol.${j.issue_data.volume} No.${j.issue_data.number} (${j.issue_data.year}) — ${j.issue_data.issue_title||''}</span></div>` : '';
+
+    const xmlHtml = j.xml_download_url ? `
+      <div class="meta-row"><span class="meta-key">Download XML</span><span class="meta-value"><a href="${j.xml_download_url}" style="color:var(--success);font-weight:600;">⬇️ ${j.xml_filename}</a></span></div>` : '';
+
+    let autoLogHtml = '';
+    if (j.automation_log) {
+        autoLogHtml = `
+        <div class="meta-row" style="flex-direction:column;gap:4px;">
+          <div class="meta-key">🚀 Log Otomasi</div>
+          <div class="json-block" style="color:var(--text-primary);">${j.automation_log.replace(/\\n/g, '<br>')}</div>
+        </div>`;
+    }
+
+    document.getElementById('modal-body').innerHTML = `
+      <div class="meta-row"><span class="meta-key">Job ID</span><span class="meta-value">#${j.job_id}</span></div>
+      <div class="meta-row"><span class="meta-key">File</span><span class="meta-value">${j.filename}</span></div>
+      <div class="meta-row"><span class="meta-key">Status Utama</span><span class="meta-value">${badgeHtml(j.status)}</span></div>
+      <div class="meta-row"><span class="meta-key">Status Otomasi</span><span class="meta-value">${j.automation_status || 'idle'}</span></div>
+      <div class="meta-row"><span class="meta-key">Dibuat</span><span class="meta-value">${j.created_at ? new Date(j.created_at).toLocaleString('id-ID') : '—'}</span></div>
+      ${issHtml}
+      ${xmlHtml}
+      ${metaHtml}
+      ${errorHtml}
+      ${autoLogHtml}
+    `;
+
+    document.getElementById('modal-overlay').classList.add('open');
+  }
+
+  function closeModal(e) {
+    if (!e || e.target === document.getElementById('modal-overlay')) {
+      document.getElementById('modal-overlay').classList.remove('open');
+    }
+  }
+
+  // ===========================
+  // TOAST
+  // ===========================
+  function toast(msg, type = 'info') {
+    const el = document.createElement('div');
+    el.className = `toast toast-${type}`;
+    el.innerHTML = `<span class="toast-icon">${type==='success'?'✅':type==='error'?'❌':'ℹ️'}</span><span>${msg}</span>`;
+    document.getElementById('toast-container').appendChild(el);
+    setTimeout(() => el.remove(), 4000);
+  }
+
+  // ===========================
+  // INIT
+  // ===========================
+  loadJobs();
+  // Auto-refresh setiap 10 detik
+  setInterval(() => loadJobs(), 10000);
+</script>
+</body>
+</html>
